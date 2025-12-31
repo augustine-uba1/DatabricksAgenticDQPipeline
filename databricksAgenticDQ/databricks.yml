@@ -1,0 +1,53 @@
+# This is a Databricks asset bundle definition for databricksAgenticDQ.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+bundle:
+  name: databricksAgenticDQ
+  uuid: 3cff8826-a6fb-41a4-b83c-d4298e1bcf5b
+
+include:
+  - resources/*.yml
+  - resources/*/*.yml
+
+# Only sync what the jobs need to execute (keeps deploys fast).
+sync:
+  include:
+    - src/**
+    - conf/**
+
+variables:
+  spark_version:
+    description: Databricks Runtime version for job clusters (14.0+ recommended for workspace-file relative paths).
+    default: "14.3.x-scala2.12"
+  node_type_id:
+    description: Azure VM type for job clusters.
+    default: "Standard_DS3_v2"
+  num_workers:
+    description: Worker count for the shared job cluster.
+    default: 2
+  ingest_concurrency:
+    description: How many sources Auto Loader can ingest in parallel.
+    default: 4
+  data_security_mode:
+    description: Cluster data access mode. Adjust to match your workspace policy (e.g. SINGLE_USER / USER_ISOLATION / NONE).
+    default: "SINGLE_USER"
+
+targets:
+  dev:
+    # The default target uses 'mode: development' to create a development copy.
+    # - Deployed resources get prefixed with '[dev my_user_name]'
+    # - Any job schedules and triggers are paused by default.
+    # See also https://docs.databricks.com/dev-tools/bundles/deployment-modes.html.
+    mode: development
+    default: true
+    workspace:
+      host: https://adb-512579183162692.12.azuredatabricks.net
+
+  prod:
+    mode: production
+    workspace:
+      host: https://adb-512579183162692.12.azuredatabricks.net
+      # We explicitly deploy to /Workspace/Users/augustine_ubanzemeka@yahoo.com to make sure we only have a single copy.
+      root_path: /Workspace/Users/augustine_ubanzemeka@yahoo.com/.bundle/${bundle.name}/${bundle.target}
+    permissions:
+      - user_name: augustine_ubanzemeka@yahoo.com
+        level: CAN_MANAGE

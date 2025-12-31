@@ -1,0 +1,52 @@
+resources:
+  jobs:
+    ingest_autoloader_job:
+      name: ${bundle.name}-${bundle.target}-ingest-autoloader
+
+      parameters:
+        - name: source_path
+          default: "dbfs:/tmp/databricksAgenticDQ/landing/events_json/"
+        - name: raw_table
+          default: "main.raw.events_json"
+        - name: format
+          default: "json"
+        - name: schema_location
+          default: "dbfs:/tmp/databricksAgenticDQ/_schemas/events_json/"
+        - name: checkpoint_location
+          default: "dbfs:/tmp/databricksAgenticDQ/_checkpoints/events_json/"
+        - name: rescued_data_column
+          default: "_rescued_data"
+        - name: available_now
+          default: "true"
+
+      tasks:
+        - task_key: autoloader_to_raw
+          job_cluster_key: jcl
+          spark_python_task:
+            # Path is relative to THIS yaml file; bundle deploys it to workspace. :contentReference[oaicite:3]{index=3}
+            python_file: ../src/ingestion/autoloader_to_raw.py
+            parameters:
+              - "--source_path"
+              - "{{job.parameters.source_path}}"
+              - "--raw_table"
+              - "{{job.parameters.raw_table}}"
+              - "--format"
+              - "{{job.parameters.format}}"
+              - "--schema_location"
+              - "{{job.parameters.schema_location}}"
+              - "--checkpoint_location"
+              - "{{job.parameters.checkpoint_location}}"
+              - "--rescued_data_column"
+              - "{{job.parameters.rescued_data_column}}"
+              - "--available_now"
+              - "{{job.parameters.available_now}}"
+
+      job_clusters:
+        - job_cluster_key: jcl
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            num_workers: ${var.num_workers}
+            data_security_mode: ${var.data_security_mode}
+            spark_conf:
+              "spark.databricks.delta.schema.autoMerge.enabled": "true"
