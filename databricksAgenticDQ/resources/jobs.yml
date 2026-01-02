@@ -1,62 +1,41 @@
 resources:
   jobs:
-    ingest_autoloader_job:
-      name: ${bundle.name}-${bundle.target}-ingest-autoloader
 
+    ingest_raw_job:
+      name: ${bundle.name}-${bundle.target}-ingest-raw
       parameters:
-        - name: source_key
-          default: "stock"
-
-        - name: source_path
-          default: "dbfs:/tmp/databricksAgenticDQ/landing/events_json/"
-        - name: raw_table
-          default: "main.raw.events_json"
-        - name: format
-          default: "json"
-        - name: schema_location
-          default: "dbfs:/tmp/databricksAgenticDQ/_schemas/events_json/"
-        - name: checkpoint_location
-          default: "dbfs:/tmp/databricksAgenticDQ/_checkpoints/events_json/"
-        - name: rescued_data_column
-          default: "_rescued_data"
-
-        - name: available_now
-          default: "true"
-
-        # NEW: used when available_now = false
-        - name: processing_time
-          default: "1 minute"
+        - name: sources_config_path
+          default: ${var.bundle_files_root}/conf/sources.json
 
       tasks:
-        - task_key: autoloader_to_raw
+        - task_key: generate_keys
           job_cluster_key: jcl
-          spark_python_task:
-            python_file: ../src/ingestion/autoloader_to_raw.py
-            parameters:
-              - "--source_key"
-              - "{{job.parameters.source_key}}"
+          notebook_task:
+            notebook_path: ../src/orchestration/generate_source_keys.ipynb
+            base_parameters:
+              sources_config_path: "{{job.parameters.sources_config_path}}"
 
-              - "--source_path"
-              - "{{job.parameters.source_path}}"
-              - "--raw_table"
-              - "{{job.parameters.raw_table}}"
-              - "--format"
-              - "{{job.parameters.format}}"
-              - "--schema_location"
-              - "{{job.parameters.schema_location}}"
-              - "--checkpoint_location"
-              - "{{job.parameters.checkpoint_location}}"
-              - "--rescued_data_column"
-              - "{{job.parameters.rescued_data_column}}"
-
-              - "--available_now"
-              - "{{job.parameters.available_now}}"
-              - "--processing_time"
-              - "{{job.parameters.processing_time}}"
-
-              # Optional but recommended for lineage/debugging
-              - "--job_run_id"
-              - "{{job.run_id}}"
+        - task_key: ingest_each_source
+          depends_on:
+            - task_key: generate_keys
+          for_each_task:
+            concurrency: ${var.ingest_concurrency}
+            inputs: "{{tasks.generate_keys.values.source_keys}}"
+            task:
+              task_key: ingest_one
+              job_cluster_key: jcl
+              max_retries: 2
+              min_retry_interval_millis: 60000
+              timeout_seconds: 3600
+              spark_python_task:
+                python_file: ../src/ingestion/autoloader_to_raw.py
+                parameters:
+                  - "--source_key"
+                  - "{{input}}"
+                  - "--sources_config_path"
+                  - "{{job.parameters.sources_config_path}}"
+                  - "--job_run_id"
+                  - "{{job.run_id}}"
 
       job_clusters:
         - job_cluster_key: jcl
@@ -67,3 +46,18 @@ resources:
             data_security_mode: ${var.data_security_mode}
             spark_conf:
               "spark.databricks.delta.schema.autoMerge.enabled": "true"
+
+
+    orchestrator_job:
+      name: ${bundle.name}-${bundle.target}-orchestrator
+      max_concurrent_runs: 1
+
+      schedule:
+        quartz_cron_expression: "0 0 */6 * * ?"
+        timezone_id: "Europe/London"
+        pause_status: ${var.orchestrator_pause_status}
+
+      tasks:
+        - task_key: run_ingestion
+          run_job_task:
+            job_id: ${resources.jobs.ingest_raw_job.id}

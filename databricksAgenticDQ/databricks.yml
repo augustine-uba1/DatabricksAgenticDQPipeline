@@ -31,6 +31,13 @@ variables:
     description: Cluster data access mode. Adjust to match your workspace policy (e.g. SINGLE_USER / USER_ISOLATION / NONE).
     default: "SINGLE_USER"
 
+  bundle_files_root:
+    description: Workspace path where bundle-synced files land (bundle root + /files).
+    default: ${workspace.root_path}/files
+
+  orchestrator_pause_status:
+    default: "PAUSED"
+
 targets:
   dev:
     # The default target uses 'mode: development' to create a development copy.
@@ -44,6 +51,8 @@ targets:
 
   prod:
     mode: production
+    variables:
+      orchestrator_pause_status: "UNPAUSED"
     workspace:
       host: https://adb-512579183162692.12.azuredatabricks.net
       # We explicitly deploy to /Workspace/Users/augustine_ubanzemeka@yahoo.com to make sure we only have a single copy.
