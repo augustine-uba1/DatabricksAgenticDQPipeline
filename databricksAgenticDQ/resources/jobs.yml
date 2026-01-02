@@ -1,0 +1,63 @@
+resources:
+  jobs:
+
+    ingest_raw_job:
+      name: ${bundle.name}-${bundle.target}-ingest-raw
+      parameters:
+        - name: sources_config_path
+          default: ${var.bundle_files_root}/conf/sources.json
+
+      tasks:
+        - task_key: generate_keys
+          job_cluster_key: jcl
+          notebook_task:
+            notebook_path: ../src/orchestration/generate_source_keys.ipynb
+            base_parameters:
+              sources_config_path: "{{job.parameters.sources_config_path}}"
+
+        - task_key: ingest_each_source
+          depends_on:
+            - task_key: generate_keys
+          for_each_task:
+            concurrency: ${var.ingest_concurrency}
+            inputs: "{{tasks.generate_keys.values.source_keys}}"
+            task:
+              task_key: ingest_one
+              job_cluster_key: jcl
+              max_retries: 2
+              min_retry_interval_millis: 60000
+              timeout_seconds: 3600
+              spark_python_task:
+                python_file: ../src/ingestion/autoloader_to_raw.py
+                parameters:
+                  - "--source_key"
+                  - "{{input}}"
+                  - "--sources_config_path"
+                  - "{{job.parameters.sources_config_path}}"
+                  - "--job_run_id"
+                  - "{{job.run_id}}"
+
+      job_clusters:
+        - job_cluster_key: jcl
+          new_cluster:
+            spark_version: ${var.spark_version}
+            node_type_id: ${var.node_type_id}
+            num_workers: ${var.num_workers}
+            data_security_mode: ${var.data_security_mode}
+            spark_conf:
+              "spark.databricks.delta.schema.autoMerge.enabled": "true"
+
+
+    orchestrator_job:
+      name: ${bundle.name}-${bundle.target}-orchestrator
+      max_concurrent_runs: 1
+
+      schedule:
+        quartz_cron_expression: "0 0 */6 * * ?"
+        timezone_id: "Europe/London"
+        pause_status: ${var.orchestrator_pause_status}
+
+      tasks:
+        - task_key: run_ingestion
+          run_job_task:
+            job_id: ${resources.jobs.ingest_raw_job.id}

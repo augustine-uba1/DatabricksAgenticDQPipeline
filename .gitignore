@@ -1,0 +1,17 @@
+# Databricks Asset Bundles / CLI state
+.databricks/
+.bundle/
+.terraform/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db

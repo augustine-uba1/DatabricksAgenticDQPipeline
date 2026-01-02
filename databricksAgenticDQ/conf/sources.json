@@ -1,0 +1,20 @@
+{
+  "sources": [
+    {
+      "key": "stock",
+      "args": {
+        "format": "parquet",
+        "source_path": "abfss://raw-stock-data@stadevm77kkznmognla.dfs.core.windows.net/stock_raw",
+        "raw_table": "dev_raw.stock.stock",
+        "schema_location": "abfss://raw-stock-data@stadevm77kkznmognla.dfs.core.windows.net/stock_raw/_schemas/stock",
+        "checkpoint_location": "abfss://raw-stock-data@stadevm77kkznmognla.dfs.core.windows.net/stock_raw/_checkpoints/stock",
+        "rescued_data_column": "_rescued_data",
+        "available_now": true,
+        "processing_time": "1 minute",
+        "cloudfiles_options": {
+          "cloudFiles.inferColumnTypes": "true"
+        }
+      }
+    }
+  ]
+}
