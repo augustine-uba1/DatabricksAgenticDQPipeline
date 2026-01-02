@@ -4,6 +4,9 @@ resources:
       name: ${bundle.name}-${bundle.target}-ingest-autoloader
 
       parameters:
+        - name: source_key
+          default: "stock"
+
         - name: source_path
           default: "dbfs:/tmp/databricksAgenticDQ/landing/events_json/"
         - name: raw_table
@@ -16,16 +19,23 @@ resources:
           default: "dbfs:/tmp/databricksAgenticDQ/_checkpoints/events_json/"
         - name: rescued_data_column
           default: "_rescued_data"
+
         - name: available_now
           default: "true"
+
+        # NEW: used when available_now = false
+        - name: processing_time
+          default: "1 minute"
 
       tasks:
         - task_key: autoloader_to_raw
           job_cluster_key: jcl
           spark_python_task:
-            # Path is relative to THIS yaml file; bundle deploys it to workspace. :contentReference[oaicite:3]{index=3}
             python_file: ../src/ingestion/autoloader_to_raw.py
             parameters:
+              - "--source_key"
+              - "{{job.parameters.source_key}}"
+
               - "--source_path"
               - "{{job.parameters.source_path}}"
               - "--raw_table"
@@ -38,8 +48,15 @@ resources:
               - "{{job.parameters.checkpoint_location}}"
               - "--rescued_data_column"
               - "{{job.parameters.rescued_data_column}}"
+
               - "--available_now"
               - "{{job.parameters.available_now}}"
+              - "--processing_time"
+              - "{{job.parameters.processing_time}}"
+
+              # Optional but recommended for lineage/debugging
+              - "--job_run_id"
+              - "{{job.run_id}}"
 
       job_clusters:
         - job_cluster_key: jcl
