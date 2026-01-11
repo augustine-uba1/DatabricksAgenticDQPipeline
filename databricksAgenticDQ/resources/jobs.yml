@@ -61,3 +61,8 @@ resources:
         - task_key: run_ingestion
           run_job_task:
             job_id: ${resources.jobs.ingest_raw_job.id}
+        - task_key: run_medallion
+          depends_on:
+            - task_key: run_ingestion
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.medallion_pipeline.id}

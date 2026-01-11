@@ -1,0 +1,10 @@
+{
+  "defaults": {
+    "required_columns": ["_ingest_ts", "_input_file", "_source_key", "_job_run_id"]
+  },
+  "sources": {
+    "stock": {
+      "required_columns": []
+    }
+  }
+}
