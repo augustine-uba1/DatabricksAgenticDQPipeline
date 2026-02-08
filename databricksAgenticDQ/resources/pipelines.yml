@@ -1,0 +1,35 @@
+resources:
+  pipelines:
+    medallion_pipeline:
+      name: ${bundle.name}-${bundle.target}-medallion
+      catalog: dev_raw
+      schema: stock_mdl
+      development: true
+
+      # Explicit compute (avoid default autoscaling asking for too many cores)
+      clusters:
+        - label: default
+          node_type_id: ${var.node_type_id}
+          num_workers: 0
+          spark_conf:
+            spark.databricks.cluster.profile: singleNode
+            spark.master: local[*]
+          custom_tags:
+            ResourceClass: SingleNode
+
+        - label: maintenance
+          node_type_id: ${var.node_type_id}
+          num_workers: 0
+          spark_conf:
+            spark.databricks.cluster.profile: singleNode
+            spark.master: local[*]
+          custom_tags:
+            ResourceClass: SingleNode
+      
+      libraries:
+        - glob:
+            include: ../src/pipelines/medallion_pipeline.py
+
+      configuration:
+        sources_config_path: ${var.bundle_files_root}/conf/sources.json
+        dq_rules_path: ${var.bundle_files_root}/conf/dq_rules.json
